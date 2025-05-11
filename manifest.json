@@ -3,7 +3,13 @@
   "name": "Amazon Rewards",
   "version": "1.0",
   "description": "A Chrome extension for Amazon Rewards",
-  "permissions": [],
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.amazon.com/*"
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
