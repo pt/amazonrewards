@@ -1,0 +1,22 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Node modules (if we add them later)
+node_modules/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build output (if we add it later)
+dist/
+build/
+
+# Environment files
+.env
+.env.local
+.env.*.local 
