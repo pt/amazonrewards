@@ -43,107 +43,56 @@ document.addEventListener('DOMContentLoaded', function() {
     return entry;
   }
 
-  async function fetchCredits() {
-    try {
-      // Show loading state
-      loadingElement.style.display = 'block';
-      creditsElement.style.display = 'none';
-      errorElement.style.display = 'none';
-
-      // Create a new tab to fetch the credits
-      const tab = await chrome.tabs.create({
-        url: 'https://www.amazon.com/norushcredits',
-        active: false
-      });
-
-      // Wait for the page to load and execute script to get credits
-      const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => {
-          // Log the first 1000 characters of the page text for debugging
-          const pageText = document.body.innerText || document.body.textContent || '';
-          console.log('PAGE TEXT SAMPLE:', pageText.slice(0, 1000));
-
-          // Flexible regex: $X.XX expires on/expires on MMM DD, YYYY (case-insensitive)
-          const rewardRegex = /\$(\d+\.\d{2})\s+expires? on\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}, \d{4})/gi;
-          const matches = [];
-          let match;
-          while ((match = rewardRegex.exec(pageText)) !== null) {
-            const date = new Date(match[2]);
-            if (!isNaN(date)) {
-              matches.push({
-                amount: match[1],
-                expiryDate: date.toISOString(),
-                text: match[0]
-              });
-            }
-          }
-
-          return {
-            entries: matches,
-            isLoggedIn: !document.querySelector('#nav-link-accountList')?.textContent.includes('Sign in'),
-            debugSample: pageText.slice(0, 1000)
-          };
-        }
-      });
-
-      // Close the tab we created
-      await chrome.tabs.remove(tab.id);
-
-      // Process the results
-      const result = results[0].result;
-      console.log('Script result:', result);
-      
-      if (result.entries && result.entries.length > 0) {
-        // Clear previous entries
-        creditsListElement.innerHTML = '';
-        
-        // Sort entries by expiry date
-        result.entries.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
-        
-        // Calculate total
-        const total = result.entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
-        
-        // Add each credit entry
-        result.entries.forEach(entry => {
-          const creditEntry = createCreditEntry(entry.amount, entry.expiryDate);
-          creditsListElement.appendChild(creditEntry);
-        });
-        
-        // Update total
-        totalAmountElement.textContent = `$${total.toFixed(2)}`;
-        
-        // Show the credits container
-        loadingElement.style.display = 'none';
-        creditsElement.style.display = 'block';
-        errorElement.style.display = 'none';
-      } else {
-        // Show appropriate error message
-        let errorMessage = 'Unable to load credits. ';
-        if (!result.isLoggedIn) {
-          errorMessage += 'Please sign in to Amazon first.';
-        } else {
-          errorMessage += 'No credits found on the page.';
-        }
-        errorElement.textContent = errorMessage;
-        loadingElement.style.display = 'none';
-        creditsElement.style.display = 'none';
-        errorElement.style.display = 'block';
-        // Log debug sample for troubleshooting
-        console.log('DEBUG PAGE TEXT SAMPLE:', result.debugSample);
-      }
-    } catch (error) {
-      console.error('Error fetching credits:', error);
-      errorElement.textContent = `Error: ${error.message}`;
+  function displayCredits(entries) {
+    creditsListElement.innerHTML = '';
+    if (!entries || entries.length === 0) {
+      errorElement.textContent = 'No credits found.';
       loadingElement.style.display = 'none';
       creditsElement.style.display = 'none';
       errorElement.style.display = 'block';
+      return;
     }
+    // Sort entries by expiry date
+    entries.sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+    // Calculate total
+    const total = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+    // Add each credit entry
+    entries.forEach(entry => {
+      const creditEntry = createCreditEntry(entry.amount, entry.expiryDate);
+      creditsListElement.appendChild(creditEntry);
+    });
+    // Update total
+    totalAmountElement.textContent = `$${total.toFixed(2)}`;
+    // Show the credits container
+    loadingElement.style.display = 'none';
+    creditsElement.style.display = 'block';
+    errorElement.style.display = 'none';
+  }
+
+  function fetchAndDisplayCredits(forceRefresh = false) {
+    loadingElement.style.display = 'block';
+    creditsElement.style.display = 'none';
+    errorElement.style.display = 'none';
+    chrome.storage.local.get(['credits', 'creditsLastFetched'], (data) => {
+      const now = Date.now();
+      const oneHour = 60 * 60 * 1000;
+      if (!forceRefresh && data.credits && data.creditsLastFetched && (now - data.creditsLastFetched < oneHour)) {
+        // Use cached credits
+        displayCredits(data.credits);
+      } else {
+        // Request background to refresh
+        chrome.runtime.sendMessage('refreshCreditsNow', (entries) => {
+          displayCredits(entries);
+        });
+      }
+    });
   }
 
   // Fetch credits when popup opens
-  fetchCredits();
+  fetchAndDisplayCredits();
 
   // Add click handler for refresh button
-  refreshButton.addEventListener('click', fetchCredits);
+  refreshButton.addEventListener('click', function() {
+    fetchAndDisplayCredits(true);
+  });
 }); 
