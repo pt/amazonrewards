@@ -42,7 +42,27 @@ async function fetchCreditsAndStore() {
             badgeText = cents >= 0.5 ? String(dollars + 1) : String(dollars);
           }
           chrome.action.setBadgeText({ text: "$" + badgeText });
-          chrome.action.setBadgeBackgroundColor({ color: '#FF9900' }); // Amazon orange
+
+          // Badge color logic based on soonest expiration
+          let badgeColor = '#4CAF50'; // Default green
+          if (entries.length > 0) {
+            const soonest = entries.reduce((min, entry) => {
+              const d = new Date(entry.expiryDate);
+              return (!min || d < min) ? d : min;
+            }, null);
+            if (soonest) {
+              const nowDate = new Date();
+              const days = Math.ceil((soonest - nowDate) / (1000 * 60 * 60 * 24));
+              if (days < 15) {
+                badgeColor = '#D32F2F'; // Red
+              } else if (days < 31) {
+                badgeColor = '#FFD600'; // Yellow
+              } else {
+                badgeColor = '#4CAF50'; // Green
+              }
+            }
+          }
+          chrome.action.setBadgeBackgroundColor({ color: badgeColor });
           resolve(entries);
         });
       });
