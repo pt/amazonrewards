@@ -111,18 +111,11 @@ async function fetchCreditsDirectly() {
 
 async function fetchCreditsWithTab() {
   return new Promise((resolve) => {
-    // Create tab with as little visibility as possible
-    chrome.windows.create({
+    // Create a background tab instead of a popup window
+    chrome.tabs.create({
       url: AMAZON_CREDITS_URL,
-      type: 'popup',
-      width: 1,
-      height: 1,
-      left: 0,
-      top: 0,
-      focused: false
-    }, async (window) => {
-      const tab = window.tabs[0];
-      
+      active: false // This makes it a background tab
+    }, async (tab) => {
       // Allow time for the page to load
       setTimeout(() => {
         chrome.scripting.executeScript({
@@ -145,8 +138,8 @@ async function fetchCreditsWithTab() {
             return matches;
           }
         }, async (results) => {
-          // Close the window as quickly as possible
-          chrome.windows.remove(window.id);
+          // Close the tab as quickly as possible
+          chrome.tabs.remove(tab.id);
           const entries = results && results[0] && results[0].result ? results[0].result : [];
           resolve(entries);
         });
@@ -169,7 +162,8 @@ async function fetchCreditsAndStore() {
     const now = Date.now();
     chrome.storage.local.set({
       credits: entries,
-      creditsLastFetched: now
+      creditsLastFetched: now,
+      refreshRequested: false
     });
     
     // Update badge
@@ -205,6 +199,8 @@ async function fetchCreditsAndStore() {
     
     return entries;
   } catch (error) {
+    // Clear the refresh request flag even on error
+    chrome.storage.local.set({ refreshRequested: false });
     return [];
   }
 }
@@ -222,7 +218,23 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg === 'refreshCreditsNow') {
-    fetchCreditsAndStore().then((entries) => sendResponse(entries));
+    fetchCreditsAndStore().then((entries) => {
+      if (sendResponse) {
+        sendResponse(entries);
+      }
+    });
     return true;
+  } else if (msg === 'executeRefreshNow') {
+    // Execute refresh immediately and respond when done
+    fetchCreditsAndStore().then((entries) => {
+      if (sendResponse) {
+        sendResponse({ success: true, entries: entries });
+      }
+    }).catch(error => {
+      if (sendResponse) {
+        sendResponse({ success: false, error: error.message });
+      }
+    });
+    return true; // Keep the message channel open for async response
   }
 }); 

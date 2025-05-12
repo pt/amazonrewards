@@ -58,11 +58,22 @@
     .refresh-button:hover {
       background-color: #e68a00;
     }
+    .refresh-button:disabled {
+      background-color: #ccc;
+      cursor: default;
+    }
     .total-credits {
       margin-top: 15px;
       padding-top: 10px;
       border-top: 2px solid #eee;
       font-weight: bold;
+    }
+    .last-refresh {
+      font-size: 11px;
+      color: #999;
+      text-align: right;
+      margin-top: 10px;
+      font-style: italic;
     }
   </style>
 </head>
@@ -78,6 +89,7 @@
         <div id="totalCredits" class="total-credits">
           Total Credits: <span id="totalAmount">$0.00</span>
         </div>
+        <!-- last-refresh will be added here dynamically -->
       </div>
       <div id="error" class="error" style="display: none;">
         Unable to load credits. Please try again.
