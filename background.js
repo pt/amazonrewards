@@ -32,7 +32,19 @@ async function fetchCreditsAndStore() {
         chrome.storage.local.set({
           credits: entries,
           creditsLastFetched: now
-        }, () => resolve(entries));
+        }, () => {
+          // Set badge with rounded dollar amount
+          const total = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+          let badgeText = '';
+          if (total > 0) {
+            const dollars = Math.floor(total);
+            const cents = total - dollars;
+            badgeText = cents >= 0.5 ? String(dollars + 1) : String(dollars);
+          }
+          chrome.action.setBadgeText({ text: "$" + badgeText });
+          chrome.action.setBadgeBackgroundColor({ color: '#FF9900' }); // Amazon orange
+          resolve(entries);
+        });
       });
     });
   });
