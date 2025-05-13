@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   // Get the URL from background script's configuration
-  let creditsUrl = nil; //'https://www.amazon.com/norushcredits'; // Default URL
+  let creditsUrl = null; // Initialize as null, will be set by background page
   
   // Try to access the background script's configuration
   chrome.runtime.getBackgroundPage(function(bg) {
@@ -177,91 +177,31 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshButton.disabled = true;
     refreshButton.textContent = "Refreshing...";
     
+    console.log("Refresh button clicked, sending message to background page...");
     
-    // Always get the latest URL from the background page
-    let currentUrl = creditsUrl;
-    if (backgroundPage && backgroundPage.getCreditsUrl) {
-      currentUrl = backgroundPage.getCreditsUrl();
-    }
-    
-    // Create a background tab
-    chrome.tabs.create({ 
-      url: currentUrl,
-      active: false // This makes it a background tab
-    }, (tab) => {
-      // Wait for page to load and extract credits
-      setTimeout(() => {
-        chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: () => {
-            const pageText = document.body.innerText || document.body.textContent || '';
-            const rewardRegex = /\$(\d+\.\d{2})\s+expires? on\s+((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}, \d{4})/gi;
-            const matches = [];
-            let match;
-            while ((match = rewardRegex.exec(pageText)) !== null) {
-              const date = new Date(match[2]);
-              if (!isNaN(date)) {
-                matches.push({
-                  amount: match[1],
-                  expiryDate: date.toISOString(),
-                  text: match[0]
-                });
-              }
-            }
-            return matches;
-          }
-        }, (results) => {
-          const entries = results && results[0] && results[0].result ? results[0].result : [];
-          
-          // Store the results
-          const now = Date.now();
-          chrome.storage.local.set({
-            credits: entries,
-            creditsLastFetched: now
-          });
-          
-          // Update badge
-          const total = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
-          let badgeText = '';
-          if (total > 0) {
-            const dollars = Math.floor(total);
-            const cents = total - dollars;
-            badgeText = cents >= 0.5 ? String(dollars + 1) : String(dollars);
-          }
-          chrome.action.setBadgeText({ text: "$" + badgeText });
-          
-          // Badge color logic based on soonest expiration
-          let badgeColor = '#4CAF50'; // Default green
-          if (entries.length > 0) {
-            const soonest = entries.reduce((min, entry) => {
-              const d = new Date(entry.expiryDate);
-              return (!min || d < min) ? d : min;
-            }, null);
-            if (soonest) {
-              const nowDate = new Date();
-              const days = Math.ceil((soonest - nowDate) / (1000 * 60 * 60 * 24));
-              if (days < 15) {
-                badgeColor = '#D32F2F'; // Red
-              } else if (days < 31) {
-                badgeColor = '#FFD600'; // Yellow
-              } else {
-                badgeColor = '#4CAF50'; // Green
-              }
-            }
-          }
-          chrome.action.setBadgeBackgroundColor({ color: badgeColor });
-          
-          // Close the tab
-          chrome.tabs.remove(tab.id);
-          
-          // Re-enable the button and update text
-          refreshButton.disabled = false;
-          refreshButton.textContent = "Refresh Credits";
-          
+    // First try a test message
+    chrome.runtime.sendMessage({ action: "test" }, function(response) {
+      console.log("Test message response:", response);
+      
+      // Now send the actual refresh request
+      chrome.runtime.sendMessage({ action: "refresh" }, function(response) {
+        console.log("Refresh response:", response);
+        
+        // Re-enable the button and update text
+        refreshButton.disabled = false;
+        refreshButton.textContent = "Refresh Credits";
+        
+        if (response && response.success) {
           // Update the displayed credits
           displayCreditsFromStorage();
-        });
-      }, 3000); // Wait 3 seconds for page to load
+        } else {
+          // Show error
+          const errorMsg = response && response.error ? response.error : "Unknown error";
+          console.error("Error refreshing credits:", errorMsg);
+          errorElement.textContent = "Error refreshing credits: " + errorMsg;
+          errorElement.style.display = "block";
+        }
+      });
     });
   });
 }); 

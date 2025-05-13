@@ -19,8 +19,15 @@ function getCreditsUrl() {
 }
 
 // Make function available to popup
-// This needs to be global for the popup to access it
 self.getCreditsUrl = getCreditsUrl;
+
+// Add a simple test function
+self.testFunction = function() {
+  console.log("Test function called");
+  return Promise.resolve("Test successful");
+};
+
+// We'll define refreshCredits after fetchCreditsAndStore is defined
 
 async function fetchWithCookies(url) {
   try {
@@ -225,6 +232,15 @@ async function fetchCreditsAndStore() {
   }
 }
 
+// Now define refreshCredits after fetchCreditsAndStore is defined
+self.refreshCredits = function() {
+  console.log("Background refreshCredits function called");
+  return fetchCreditsAndStore();
+};
+
+// Expose fetchCreditsAndStore as a backup
+self.fetchCreditsAndStore = fetchCreditsAndStore;
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.alarms.create('refreshCredits', { periodInMinutes: 1 });
   fetchCreditsAndStore();
@@ -236,25 +252,29 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg === 'refreshCreditsNow') {
+// Add a message listener for refresh requests
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  console.log("Background received message:", message);
+  
+  if (message.action === "refresh") {
+    console.log("Processing refresh request via message");
+    
+    // Execute refresh and respond when done
     fetchCreditsAndStore().then((entries) => {
-      if (sendResponse) {
-        sendResponse(entries);
-      }
-    });
-    return true;
-  } else if (msg === 'executeRefreshNow') {
-    // Execute refresh immediately and respond when done
-    fetchCreditsAndStore().then((entries) => {
-      if (sendResponse) {
-        sendResponse({ success: true, entries: entries });
-      }
+      console.log("Refresh completed, sending response with", entries.length, "entries");
+      sendResponse({ success: true, entries: entries });
     }).catch(error => {
-      if (sendResponse) {
-        sendResponse({ success: false, error: error.message });
-      }
+      console.error("Error in refresh:", error);
+      sendResponse({ success: false, error: error.toString() });
     });
-    return true; // Keep the message channel open for async response
+    
+    // Return true to indicate we'll respond asynchronously
+    return true;
+  }
+  
+  if (message.action === "test") {
+    console.log("Received test message");
+    sendResponse({ success: true, message: "Test successful" });
+    return true;
   }
 }); 
