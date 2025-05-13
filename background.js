@@ -3,19 +3,24 @@
 // Configuration for testing
 const CONFIG = {
   // Set to true to use test URL instead of Amazon URL
-  USE_TEST_URL: true,
+  USE_TEST_URL: false,
   // URL to use for testing (can be a local file:// URL)
-  TEST_URL: 'file:///Users/pt/code/amazonrewards/test-data.html'
+  TEST_URL: 'file:///Users/pt/code/amazonrewards/test-data.html',
+  // Amazon URL for production use
+  AMAZON_URL: 'https://www.amazon.com/norushcredits',
+  // Threshold settings for badge colors (in days)
+  THRESHOLDS: {
+    WARNING: 15,  // Red
+    CAUTION: 30   // Yellow
+  }
 };
 
 // Make CONFIG accessible to popup
 self.CONFIG = CONFIG;
 
-const AMAZON_CREDITS_URL = 'https://www.amazon.com/norushcredits';
-
 // Function to get the appropriate URL based on configuration
 function getCreditsUrl() {
-  return CONFIG.USE_TEST_URL ? CONFIG.TEST_URL : AMAZON_CREDITS_URL;
+  return CONFIG.USE_TEST_URL ? CONFIG.TEST_URL : CONFIG.AMAZON_URL;
 }
 
 // Make function available to popup
@@ -175,6 +180,63 @@ async function fetchCreditsWithTab() {
   });
 }
 
+// Function to update badge based on credits data
+function updateBadge(entries) {
+  console.log("Updating badge with entries:", entries);
+  console.log("Current thresholds:", CONFIG.THRESHOLDS);
+  
+  // Update badge text (total amount)
+  const total = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
+  let badgeText = '';
+  if (total > 0) {
+    const dollars = Math.floor(total);
+    const cents = total - dollars;
+    badgeText = cents >= 0.5 ? String(dollars + 1) : String(dollars);
+  }
+  chrome.action.setBadgeText({ text: "$" + badgeText });
+  console.log("Badge text set to:", "$" + badgeText);
+  
+  // Badge color logic based on soonest expiration
+  let badgeColor = '#4CAF50'; // Default green
+  
+  if (entries.length > 0) {
+    // Find the soonest expiring credit
+    const soonest = entries.reduce((min, entry) => {
+      const d = new Date(entry.expiryDate);
+      return (!min || d < min) ? d : min;
+    }, null);
+    
+    if (soonest) {
+      const nowDate = new Date();
+      const days = Math.ceil((soonest - nowDate) / (1000 * 60 * 60 * 24));
+      console.log("Days until soonest expiration:", days);
+      
+      // Apply threshold logic
+      const warningThreshold = CONFIG.THRESHOLDS.WARNING;
+      const cautionThreshold = CONFIG.THRESHOLDS.CAUTION;
+      
+      if (days < warningThreshold) {
+        // Less than warning threshold (e.g., < 15 days) = RED
+        badgeColor = '#D32F2F';
+        console.log(`Badge color set to RED (days=${days} < warningThreshold=${warningThreshold})`);
+      } else if (days < cautionThreshold) {
+        // Less than caution threshold (e.g., < 30 days) = YELLOW
+        badgeColor = '#FFD600';
+        console.log(`Badge color set to YELLOW (warningThreshold=${warningThreshold} <= days=${days} < cautionThreshold=${cautionThreshold})`);
+      } else {
+        // Greater than or equal to caution threshold = GREEN
+        badgeColor = '#4CAF50';
+        console.log(`Badge color set to GREEN (days=${days} >= cautionThreshold=${cautionThreshold})`);
+      }
+    }
+  }
+  
+  chrome.action.setBadgeBackgroundColor({ color: badgeColor });
+}
+
+// Expose updateBadge function to popup
+self.updateBadge = updateBadge;
+
 async function fetchCreditsAndStore() {
   try {
     // Try direct fetch first
@@ -193,36 +255,8 @@ async function fetchCreditsAndStore() {
       refreshRequested: false
     });
     
-    // Update badge
-    const total = entries.reduce((sum, entry) => sum + parseFloat(entry.amount), 0);
-    let badgeText = '';
-    if (total > 0) {
-      const dollars = Math.floor(total);
-      const cents = total - dollars;
-      badgeText = cents >= 0.5 ? String(dollars + 1) : String(dollars);
-    }
-    chrome.action.setBadgeText({ text: "$" + badgeText });
-    
-    // Badge color logic based on soonest expiration
-    let badgeColor = '#4CAF50'; // Default green
-    if (entries.length > 0) {
-      const soonest = entries.reduce((min, entry) => {
-        const d = new Date(entry.expiryDate);
-        return (!min || d < min) ? d : min;
-      }, null);
-      if (soonest) {
-        const nowDate = new Date();
-        const days = Math.ceil((soonest - nowDate) / (1000 * 60 * 60 * 24));
-        if (days < 15) {
-          badgeColor = '#D32F2F'; // Red
-        } else if (days < 31) {
-          badgeColor = '#FFD600'; // Yellow
-        } else {
-          badgeColor = '#4CAF50'; // Green
-        }
-      }
-    }
-    chrome.action.setBadgeBackgroundColor({ color: badgeColor });
+    // Update badge using the new function
+    updateBadge(entries);
     
     return entries;
   } catch (error) {
@@ -241,7 +275,17 @@ self.refreshCredits = function() {
 // Expose fetchCreditsAndStore as a backup
 self.fetchCreditsAndStore = fetchCreditsAndStore;
 
+// Load saved threshold settings when extension starts
 chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.get(['thresholds'], (data) => {
+    if (data.thresholds) {
+      CONFIG.THRESHOLDS = data.thresholds;
+    } else {
+      // Save default thresholds if none exist
+      chrome.storage.local.set({ thresholds: CONFIG.THRESHOLDS });
+    }
+  });
+  
   chrome.alarms.create('refreshCredits', { periodInMinutes: 1 });
   fetchCreditsAndStore();
 });
@@ -275,6 +319,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "test") {
     console.log("Received test message");
     sendResponse({ success: true, message: "Test successful" });
+    return true;
+  }
+  
+  if (message.action === "updateBadge") {
+    console.log("Updating badge with new thresholds:", message.thresholds);
+    
+    // Update thresholds if provided
+    if (message.thresholds) {
+      CONFIG.THRESHOLDS = message.thresholds;
+    }
+    
+    // Get the latest credits data
+    chrome.storage.local.get(['credits'], (data) => {
+      if (data.credits && data.credits.length > 0) {
+        // Update the badge with current data and new thresholds
+        updateBadge(data.credits);
+        sendResponse({ success: true, message: "Badge updated" });
+      } else {
+        sendResponse({ success: false, message: "No credits data available" });
+      }
+    });
+    
+    // Return true to indicate we'll respond asynchronously
     return true;
   }
 }); 

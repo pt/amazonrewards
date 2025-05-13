@@ -46,7 +46,7 @@
       color: #d00;
       margin-top: 10px;
     }
-    .refresh-button {
+    .button {
       margin-top: 10px;
       padding: 8px 16px;
       background-color: #FF9900;
@@ -55,12 +55,20 @@
       border-radius: 4px;
       cursor: pointer;
     }
-    .refresh-button:hover {
+    .button:hover {
       background-color: #e68a00;
     }
-    .refresh-button:disabled {
+    .button:disabled {
       background-color: #ccc;
       cursor: default;
+    }
+    .secondary-button {
+      background-color: #f0f0f0;
+      color: #333;
+      border: 1px solid #ddd;
+    }
+    .secondary-button:hover {
+      background-color: #e0e0e0;
     }
     .total-credits {
       margin-top: 15px;
@@ -106,38 +114,133 @@
       font-weight: bold;
       display: none;
     }
+    .nav-buttons {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+    }
+    .settings-container {
+      display: none;
+      margin-top: 15px;
+      text-align: left;
+    }
+    .settings-group {
+      margin-bottom: 20px;
+    }
+    .settings-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .settings-item {
+      margin-bottom: 15px;
+    }
+    .settings-item label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+      color: #555;
+    }
+    .settings-item input {
+      width: 60px;
+      padding: 5px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .color-indicator {
+      display: inline-block;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+    }
+    .red-indicator {
+      background-color: #D32F2F;
+    }
+    .yellow-indicator {
+      background-color: #FFD600;
+    }
+    .green-indicator {
+      background-color: #4CAF50;
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <div id="testModeIndicator" class="test-mode-indicator">TEST MODE</div>
-    <h2>Amazon Rewards</h2>
-    <div class="credits-container">
-      <div id="loading" class="loading">Loading credits...</div>
-      <div id="credits" style="display: none;">
-        <div id="creditsList">
-          <!-- Credit entries will be inserted here -->
+    
+    <!-- Main Screen -->
+    <div id="mainScreen">
+      <h2>Amazon Rewards</h2>
+      <div class="credits-container">
+        <div id="loading" class="loading">Loading credits...</div>
+        <div id="credits" style="display: none;">
+          <div id="creditsList">
+            <!-- Credit entries will be inserted here -->
+          </div>
+          <div id="totalCredits" class="total-credits">
+            Total Credits: <span id="totalAmount">$0.00</span>
+          </div>
+          <!-- last-refresh will be added here dynamically -->
         </div>
-        <div id="totalCredits" class="total-credits">
-          Total Credits: <span id="totalAmount">$0.00</span>
+        <div id="error" class="error" style="display: none;">
+          Unable to load credits. Please try again.
         </div>
-        <!-- last-refresh will be added here dynamically -->
       </div>
-      <div id="error" class="error" style="display: none;">
-        Unable to load credits. Please try again.
+      
+      <div class="nav-buttons">
+        <button id="refreshButton" class="button">Refresh Credits</button>
+        <button id="settingsButton" class="button secondary-button">Settings</button>
+      </div>
+      
+      <!-- Developer mode section (hidden by default) -->
+      <div id="devMode" class="dev-mode">
+        <div>Developer Options</div>
+        <div class="dev-toggle">
+          <input type="checkbox" id="testModeToggle">
+          <label for="testModeToggle">Use test data file</label>
+        </div>
+        <div style="font-size: 10px; margin-top: 5px; color: #666;">
+          Test file path: <span id="testFilePath">...</span>
+        </div>
       </div>
     </div>
-    <button id="refreshButton" class="refresh-button">Refresh Credits</button>
     
-    <!-- Developer mode section (hidden by default) -->
-    <div id="devMode" class="dev-mode">
-      <div>Developer Options</div>
-      <div class="dev-toggle">
-        <input type="checkbox" id="testModeToggle">
-        <label for="testModeToggle">Use test data file</label>
+    <!-- Settings Screen -->
+    <div id="settingsScreen" class="settings-container">
+      <h2>Settings</h2>
+      
+      <div class="settings-group">
+        <div class="settings-title">Badge Color Thresholds</div>
+        
+        <div class="settings-item">
+          <label>
+            <span class="color-indicator red-indicator"></span>
+            Warning Threshold (days)
+          </label>
+          <input type="number" id="warningThreshold" min="1" max="365" placeholder="15">
+          <div style="font-size: 12px; color: #666; margin-top: 3px;">
+            Badge turns red when credits expire within this many days
+          </div>
+        </div>
+        
+        <div class="settings-item">
+          <label>
+            <span class="color-indicator yellow-indicator"></span>
+            Caution Threshold (days)
+          </label>
+          <input type="number" id="cautionThreshold" min="1" max="365" placeholder="30">
+          <div style="font-size: 12px; color: #666; margin-top: 3px;">
+            Badge turns yellow when credits expire within this many days
+          </div>
+        </div>
+        
       </div>
-      <div style="font-size: 10px; margin-top: 5px; color: #666;">
-        Test file path: <span id="testFilePath">...</span>
+      
+      <div class="nav-buttons">
+        <button id="saveSettingsButton" class="button">Save Settings</button>
+        <button id="cancelSettingsButton" class="button secondary-button">Cancel</button>
       </div>
     </div>
   </div>

@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
+  // Main screen elements
   const loadingElement = document.getElementById('loading');
   const creditsElement = document.getElementById('credits');
   const creditsListElement = document.getElementById('creditsList');
@@ -10,10 +11,25 @@ document.addEventListener('DOMContentLoaded', function() {
   const testFilePath = document.getElementById('testFilePath');
   const testModeIndicator = document.getElementById('testModeIndicator');
   
+  // Settings elements
+  const settingsButton = document.getElementById('settingsButton');
+  const saveSettingsButton = document.getElementById('saveSettingsButton');
+  const cancelSettingsButton = document.getElementById('cancelSettingsButton');
+  const warningThresholdInput = document.getElementById('warningThreshold');
+  const cautionThresholdInput = document.getElementById('cautionThreshold');
+  
+  // Screen elements
+  const mainScreen = document.getElementById('mainScreen');
+  const settingsScreen = document.getElementById('settingsScreen');
+  
   let backgroundPage = null;
   let config = {
     USE_TEST_URL: false,
-    TEST_URL: ''
+    TEST_URL: '',
+    THRESHOLDS: {
+      WARNING: 15,
+      CAUTION: 30
+    }
   };
 
   // Get the URL from background script's configuration
@@ -33,6 +49,22 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Show/hide test mode indicator
         testModeIndicator.style.display = config.USE_TEST_URL ? 'block' : 'none';
+        
+        // Set threshold values in settings
+        warningThresholdInput.value = config.THRESHOLDS.WARNING;
+        cautionThresholdInput.value = config.THRESHOLDS.CAUTION;
+      }
+    }
+  });
+  
+  // Load thresholds from storage
+  chrome.storage.local.get(['thresholds'], function(data) {
+    if (data.thresholds) {
+      warningThresholdInput.value = data.thresholds.WARNING;
+      cautionThresholdInput.value = data.thresholds.CAUTION;
+      
+      if (backgroundPage && backgroundPage.CONFIG) {
+        backgroundPage.CONFIG.THRESHOLDS = data.thresholds;
       }
     }
   });
@@ -58,6 +90,78 @@ document.addEventListener('DOMContentLoaded', function() {
       testModeIndicator.style.display = this.checked ? 'block' : 'none';
     }
   });
+  
+  // Settings button handler
+  settingsButton.addEventListener('click', function() {
+    mainScreen.style.display = 'none';
+    settingsScreen.style.display = 'block';
+  });
+  
+  // Cancel settings button handler
+  cancelSettingsButton.addEventListener('click', function() {
+    // Restore original values
+    chrome.storage.local.get(['thresholds'], function(data) {
+      if (data.thresholds) {
+        warningThresholdInput.value = data.thresholds.WARNING;
+        cautionThresholdInput.value = data.thresholds.CAUTION;
+      } else {
+        warningThresholdInput.value = 15;
+        cautionThresholdInput.value = 30;
+      }
+    });
+    
+    // Switch back to main screen
+    settingsScreen.style.display = 'none';
+    mainScreen.style.display = 'block';
+  });
+  
+  // Save settings button handler
+  saveSettingsButton.addEventListener('click', function() {
+    // Validate inputs
+    let warning = parseInt(warningThresholdInput.value, 10);
+    let caution = parseInt(cautionThresholdInput.value, 10);
+    
+    if (isNaN(warning) || warning < 1) {
+      warning = 15;
+      warningThresholdInput.value = warning;
+    }
+    
+    if (isNaN(caution) || caution < 1) {
+      caution = 30;
+      cautionThresholdInput.value = caution;
+    }
+    
+    // Ensure caution is greater than warning
+    if (caution <= warning) {
+      caution = warning + 1;
+      cautionThresholdInput.value = caution;
+    }
+    
+    // Save to storage
+    const thresholds = {
+      WARNING: warning,
+      CAUTION: caution
+    };
+    
+    chrome.storage.local.set({ thresholds: thresholds }, function() {
+      // Update background config
+      if (backgroundPage && backgroundPage.CONFIG) {
+        backgroundPage.CONFIG.THRESHOLDS = thresholds;
+      }
+      
+      // Send a message to the background script to update the badge
+      chrome.runtime.sendMessage({ 
+        action: "updateBadge", 
+        thresholds: thresholds 
+      }, function(response) {
+        console.log("Badge update response:", response);
+      });
+      
+      // Switch back to main screen
+      settingsScreen.style.display = 'none';
+      mainScreen.style.display = 'block';
+    });
+  });
 
   function formatDate(dateString) {
     const date = new Date(dateString);
@@ -72,7 +176,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const today = new Date();
     const expiry = new Date(expiryDate);
     const daysUntilExpiry = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
-    return daysUntilExpiry <= 30; // Highlight if expiring within 30 days
+    
+    // Use the configured warning threshold
+    const warningThreshold = backgroundPage && backgroundPage.CONFIG ? 
+      backgroundPage.CONFIG.THRESHOLDS.WARNING : 15;
+    
+    console.log(`Checking if ${daysUntilExpiry} days until expiry is <= ${warningThreshold} days (warning threshold)`);
+    
+    // Credits expiring within the warning threshold are highlighted
+    return daysUntilExpiry <= warningThreshold;
   }
 
   function createCreditEntry(amount, expiryDate) {
