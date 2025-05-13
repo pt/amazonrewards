@@ -75,10 +75,42 @@
       margin-top: 10px;
       font-style: italic;
     }
+    .dev-mode {
+      margin-top: 15px;
+      padding-top: 10px;
+      border-top: 1px dashed #ccc;
+      font-size: 12px;
+      text-align: left;
+      display: none;
+    }
+    .dev-toggle {
+      display: flex;
+      align-items: center;
+      margin-top: 5px;
+    }
+    .dev-toggle label {
+      margin-left: 5px;
+    }
+    #devModeToggle {
+      margin-right: 5px;
+    }
+    .test-mode-indicator {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background-color: #ff5722;
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: bold;
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="container">
+    <div id="testModeIndicator" class="test-mode-indicator">TEST MODE</div>
     <h2>Amazon Rewards</h2>
     <div class="credits-container">
       <div id="loading" class="loading">Loading credits...</div>
@@ -96,7 +128,21 @@
       </div>
     </div>
     <button id="refreshButton" class="refresh-button">Refresh Credits</button>
+    
+    <!-- Developer mode section (hidden by default) -->
+    <div id="devMode" class="dev-mode">
+      <div>Developer Options</div>
+      <div class="dev-toggle">
+        <input type="checkbox" id="testModeToggle">
+        <label for="testModeToggle">Use test data file</label>
+      </div>
+      <div style="font-size: 10px; margin-top: 5px; color: #666;">
+        Test file path: <span id="testFilePath">...</span>
+      </div>
+    </div>
   </div>
+  
+  <!-- Secret dev mode activator: click 5 times on the title -->
   <script src="popup.js"></script>
 </body>
 </html> 

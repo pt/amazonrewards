@@ -1,6 +1,26 @@
 // Background service worker
 
+// Configuration for testing
+const CONFIG = {
+  // Set to true to use test URL instead of Amazon URL
+  USE_TEST_URL: true,
+  // URL to use for testing (can be a local file:// URL)
+  TEST_URL: 'file:///Users/pt/code/amazonrewards/test-data.html'
+};
+
+// Make CONFIG accessible to popup
+self.CONFIG = CONFIG;
+
 const AMAZON_CREDITS_URL = 'https://www.amazon.com/norushcredits';
+
+// Function to get the appropriate URL based on configuration
+function getCreditsUrl() {
+  return CONFIG.USE_TEST_URL ? CONFIG.TEST_URL : AMAZON_CREDITS_URL;
+}
+
+// Make function available to popup
+// This needs to be global for the popup to access it
+self.getCreditsUrl = getCreditsUrl;
 
 async function fetchWithCookies(url) {
   try {
@@ -90,7 +110,7 @@ async function parseCreditsFromHTML(html) {
 async function fetchCreditsDirectly() {
   try {
     // Try direct fetch with cookies first
-    const html = await fetchWithCookies(AMAZON_CREDITS_URL);
+    const html = await fetchWithCookies(getCreditsUrl());
     
     if (!html) {
       return null; // Fall back to tab approach
@@ -113,7 +133,7 @@ async function fetchCreditsWithTab() {
   return new Promise((resolve) => {
     // Create a background tab instead of a popup window
     chrome.tabs.create({
-      url: AMAZON_CREDITS_URL,
+      url: getCreditsUrl(),
       active: false // This makes it a background tab
     }, async (tab) => {
       // Allow time for the page to load
@@ -206,7 +226,7 @@ async function fetchCreditsAndStore() {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.alarms.create('refreshCredits', { periodInMinutes: 60 });
+  chrome.alarms.create('refreshCredits', { periodInMinutes: 1 });
   fetchCreditsAndStore();
 });
 

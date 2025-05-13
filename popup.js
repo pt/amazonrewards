@@ -5,6 +5,59 @@ document.addEventListener('DOMContentLoaded', function() {
   const totalAmountElement = document.getElementById('totalAmount');
   const errorElement = document.getElementById('error');
   const refreshButton = document.getElementById('refreshButton');
+  const devModeElement = document.getElementById('devMode');
+  const testModeToggle = document.getElementById('testModeToggle');
+  const testFilePath = document.getElementById('testFilePath');
+  const testModeIndicator = document.getElementById('testModeIndicator');
+  
+  let backgroundPage = null;
+  let config = {
+    USE_TEST_URL: false,
+    TEST_URL: ''
+  };
+
+  // Get the URL from background script's configuration
+  let creditsUrl = nil; //'https://www.amazon.com/norushcredits'; // Default URL
+  
+  // Try to access the background script's configuration
+  chrome.runtime.getBackgroundPage(function(bg) {
+    if (bg) {
+      backgroundPage = bg;
+      if (backgroundPage.getCreditsUrl) {
+        creditsUrl = backgroundPage.getCreditsUrl();
+      }
+      if (backgroundPage.CONFIG) {
+        config = backgroundPage.CONFIG;
+        testModeToggle.checked = config.USE_TEST_URL;
+        testFilePath.textContent = config.TEST_URL;
+        
+        // Show/hide test mode indicator
+        testModeIndicator.style.display = config.USE_TEST_URL ? 'block' : 'none';
+      }
+    }
+  });
+
+  // Developer mode activation (click title 5 times)
+  let titleClickCount = 0;
+  document.querySelector('h2').addEventListener('click', function() {
+    titleClickCount++;
+    if (titleClickCount >= 5) {
+      devModeElement.style.display = 'block';
+      titleClickCount = 0;
+    }
+  });
+  
+  // Test mode toggle handler
+  testModeToggle.addEventListener('change', function() {
+    if (backgroundPage && backgroundPage.CONFIG) {
+      backgroundPage.CONFIG.USE_TEST_URL = this.checked;
+      // Update the URL immediately
+      creditsUrl = backgroundPage.getCreditsUrl();
+      
+      // Show/hide test mode indicator
+      testModeIndicator.style.display = this.checked ? 'block' : 'none';
+    }
+  });
 
   function formatDate(dateString) {
     const date = new Date(dateString);
@@ -124,9 +177,16 @@ document.addEventListener('DOMContentLoaded', function() {
     refreshButton.disabled = true;
     refreshButton.textContent = "Refreshing...";
     
+    
+    // Always get the latest URL from the background page
+    let currentUrl = creditsUrl;
+    if (backgroundPage && backgroundPage.getCreditsUrl) {
+      currentUrl = backgroundPage.getCreditsUrl();
+    }
+    
     // Create a background tab
     chrome.tabs.create({ 
-      url: 'https://www.amazon.com/norushcredits',
+      url: currentUrl,
       active: false // This makes it a background tab
     }, (tab) => {
       // Wait for page to load and extract credits
