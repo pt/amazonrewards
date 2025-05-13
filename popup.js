@@ -191,6 +191,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const entry = document.createElement('div');
     entry.className = 'credit-entry';
     
+    const creditInfo = document.createElement('div');
+    creditInfo.className = 'credit-info';
+    
     const amountDiv = document.createElement('div');
     amountDiv.className = 'credits-amount';
     amountDiv.textContent = `$${amount}`;
@@ -202,8 +205,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     expiryDiv.textContent = `Expires: ${formatDate(expiryDate)}`;
     
-    entry.appendChild(amountDiv);
-    entry.appendChild(expiryDiv);
+    creditInfo.appendChild(amountDiv);
+    creditInfo.appendChild(expiryDiv);
+    
+    entry.appendChild(creditInfo);
     
     return entry;
   }
@@ -246,11 +251,18 @@ document.addEventListener('DOMContentLoaded', function() {
       const minutesAgo = Math.floor(timeDiff / (60 * 1000));
       
       if (minutesAgo < 1) {
-        lastRefreshDiv.textContent = 'Just refreshed';
+        lastRefreshDiv.textContent = 'Just updated';
       } else if (minutesAgo === 1) {
-        lastRefreshDiv.textContent = 'Refreshed 1 minute ago';
+        lastRefreshDiv.textContent = 'Updated 1 min ago';
+      } else if (minutesAgo < 60) {
+        lastRefreshDiv.textContent = `Updated ${minutesAgo} mins ago`;
       } else {
-        lastRefreshDiv.textContent = `Refreshed ${minutesAgo} minutes ago`;
+        const hoursAgo = Math.floor(minutesAgo / 60);
+        if (hoursAgo === 1) {
+          lastRefreshDiv.textContent = 'Updated 1 hour ago';
+        } else {
+          lastRefreshDiv.textContent = `Updated ${hoursAgo} hours ago`;
+        }
       }
       
       creditsElement.appendChild(lastRefreshDiv);
