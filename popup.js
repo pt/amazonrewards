@@ -91,7 +91,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
   
-  // Settings button handler
+  // Settings icon handler
   settingsButton.addEventListener('click', function() {
     mainScreen.style.display = 'none';
     settingsScreen.style.display = 'block';
