@@ -93,13 +93,6 @@
       justify-content: space-between;
       align-items: center;
     }
-    .last-refresh {
-      font-size: 10px;
-      color: #999;
-      text-align: right;
-      margin-top: 5px;
-      font-style: italic;
-    }
     .dev-mode {
       margin-top: 10px;
       padding-top: 8px;
@@ -288,16 +281,16 @@
       </div>
       
       <div class="settings-group">
-        <div class="settings-title">Badge Colors</div>
+        <div class="settings-title">Visual Cues</div>
         
         <div class="settings-item">
           <input type="number" id="warningThreshold" min="1" max="365" placeholder="15">
           <div class="threshold-label">
             <div class="threshold-name">
               <span class="color-indicator red-indicator"></span>
-              Expiring In (days)
+              Warning (days)
             </div>
-            <span class="small-note"></span>
+            <span class="small-note">Batch will turn red when this many days remain</span>
           </div>
         </div>
         
@@ -306,9 +299,23 @@
           <div class="threshold-label">
             <div class="threshold-name">
               <span class="color-indicator yellow-indicator"></span>
-              Expiring In (days)
+              Caution (days)
             </div>
-            <span class="small-note"></span>
+            <span class="small-note">Batch will turn yellow when this many days remain</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="settings-group">
+        <div class="settings-title">Update Frequency</div>
+        
+        <div class="settings-item">
+          <input type="number" id="pollingInterval" min="1" max="1440" placeholder="1">
+          <div class="threshold-label">
+            <div class="threshold-name">
+              Polling Interval (minutes)
+            </div>
+            <span class="small-note">How often the extension checks for updates</span>
           </div>
         </div>
       </div>

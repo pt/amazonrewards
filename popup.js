@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const cancelSettingsButton = document.getElementById('cancelSettingsButton');
   const warningThresholdInput = document.getElementById('warningThreshold');
   const cautionThresholdInput = document.getElementById('cautionThreshold');
+  const pollingIntervalInput = document.getElementById('pollingInterval');
   
   // Screen elements
   const mainScreen = document.getElementById('mainScreen');
@@ -29,7 +30,8 @@ document.addEventListener('DOMContentLoaded', function() {
     THRESHOLDS: {
       WARNING: 15,
       CAUTION: 30
-    }
+    },
+    POLLING_INTERVAL_MINUTES: 1
   };
 
   // Get the URL from background script's configuration
@@ -53,18 +55,27 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set threshold values in settings
         warningThresholdInput.value = config.THRESHOLDS.WARNING;
         cautionThresholdInput.value = config.THRESHOLDS.CAUTION;
+        pollingIntervalInput.value = config.POLLING_INTERVAL_MINUTES;
       }
     }
   });
   
-  // Load thresholds from storage
-  chrome.storage.local.get(['thresholds'], function(data) {
+  // Load thresholds and polling interval from storage
+  chrome.storage.local.get(['thresholds', 'pollingInterval'], function(data) {
     if (data.thresholds) {
       warningThresholdInput.value = data.thresholds.WARNING;
       cautionThresholdInput.value = data.thresholds.CAUTION;
       
       if (backgroundPage && backgroundPage.CONFIG) {
         backgroundPage.CONFIG.THRESHOLDS = data.thresholds;
+      }
+    }
+    
+    if (data.pollingInterval) {
+      pollingIntervalInput.value = data.pollingInterval;
+      
+      if (backgroundPage && backgroundPage.CONFIG) {
+        backgroundPage.CONFIG.POLLING_INTERVAL_MINUTES = data.pollingInterval;
       }
     }
   });
@@ -100,13 +111,19 @@ document.addEventListener('DOMContentLoaded', function() {
   // Cancel settings button handler
   cancelSettingsButton.addEventListener('click', function() {
     // Restore original values
-    chrome.storage.local.get(['thresholds'], function(data) {
+    chrome.storage.local.get(['thresholds', 'pollingInterval'], function(data) {
       if (data.thresholds) {
         warningThresholdInput.value = data.thresholds.WARNING;
         cautionThresholdInput.value = data.thresholds.CAUTION;
       } else {
         warningThresholdInput.value = 15;
         cautionThresholdInput.value = 30;
+      }
+      
+      if (data.pollingInterval) {
+        pollingIntervalInput.value = data.pollingInterval;
+      } else {
+        pollingIntervalInput.value = 1;
       }
     });
     
@@ -120,6 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Validate inputs
     let warning = parseInt(warningThresholdInput.value, 10);
     let caution = parseInt(cautionThresholdInput.value, 10);
+    let pollingInterval = parseInt(pollingIntervalInput.value, 10);
     
     if (isNaN(warning) || warning < 1) {
       warning = 15;
@@ -129,6 +147,11 @@ document.addEventListener('DOMContentLoaded', function() {
     if (isNaN(caution) || caution < 1) {
       caution = 30;
       cautionThresholdInput.value = caution;
+    }
+    
+    if (isNaN(pollingInterval) || pollingInterval < 1) {
+      pollingInterval = 1;
+      pollingIntervalInput.value = pollingInterval;
     }
     
     // Ensure caution is greater than warning
@@ -143,10 +166,14 @@ document.addEventListener('DOMContentLoaded', function() {
       CAUTION: caution
     };
     
-    chrome.storage.local.set({ thresholds: thresholds }, function() {
+    chrome.storage.local.set({ 
+      thresholds: thresholds,
+      pollingInterval: pollingInterval 
+    }, function() {
       // Update background config
       if (backgroundPage && backgroundPage.CONFIG) {
         backgroundPage.CONFIG.THRESHOLDS = thresholds;
+        backgroundPage.CONFIG.POLLING_INTERVAL_MINUTES = pollingInterval;
       }
       
       // Send a message to the background script to update the badge
@@ -155,6 +182,14 @@ document.addEventListener('DOMContentLoaded', function() {
         thresholds: thresholds 
       }, function(response) {
         console.log("Badge update response:", response);
+      });
+      
+      // Send a message to update the polling interval
+      chrome.runtime.sendMessage({
+        action: "updatePollingInterval",
+        pollingInterval: pollingInterval
+      }, function(response) {
+        console.log("Polling interval update response:", response);
       });
       
       // Switch back to main screen
@@ -239,33 +274,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const existingLastRefresh = document.querySelector('.last-refresh');
     if (existingLastRefresh) {
       existingLastRefresh.remove();
-    }
-    
-    // Add last refreshed timestamp
-    if (lastFetchedTime) {
-      const lastRefreshDiv = document.createElement('div');
-      lastRefreshDiv.className = 'last-refresh';
-      
-      const now = Date.now();
-      const timeDiff = now - lastFetchedTime;
-      const minutesAgo = Math.floor(timeDiff / (60 * 1000));
-      
-      if (minutesAgo < 1) {
-        lastRefreshDiv.textContent = 'Just updated';
-      } else if (minutesAgo === 1) {
-        lastRefreshDiv.textContent = 'Updated 1 min ago';
-      } else if (minutesAgo < 60) {
-        lastRefreshDiv.textContent = `Updated ${minutesAgo} mins ago`;
-      } else {
-        const hoursAgo = Math.floor(minutesAgo / 60);
-        if (hoursAgo === 1) {
-          lastRefreshDiv.textContent = 'Updated 1 hour ago';
-        } else {
-          lastRefreshDiv.textContent = `Updated ${hoursAgo} hours ago`;
-        }
-      }
-      
-      creditsElement.appendChild(lastRefreshDiv);
     }
     
     // Show the credits container

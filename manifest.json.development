@@ -11,7 +11,8 @@
     "cookies"
   ],
   "host_permissions": [
-    "https://www.amazon.com/norushcredits"    
+    "https://www.amazon.com/norushcredits",
+    "file:///*"
   ],
   "action": {
     "default_popup": "popup.html",

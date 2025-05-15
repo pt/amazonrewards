@@ -15,11 +15,13 @@ const CONFIG = {
     'https://www.amazon.com/gp/css/account/balance',
     'https://www.amazon.com/cpe/yourpayments/wallet'
   ],
-  // Threshold settings for badge colors (in days)
+  // default threshold settings for badge colors (in days)
   THRESHOLDS: {
     WARNING: 15,  // Red
     CAUTION: 30   // Yellow
-  }
+  },
+  // default olling interval in minutes
+  POLLING_INTERVAL_MINUTES: 60
 };
 
 // Make CONFIG accessible to popup
@@ -642,17 +644,24 @@ self.fetchCreditsAndStore = fetchCreditsAndStore;
 
 // Load saved threshold settings when extension starts
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get(['thresholds'], (data) => {
+  chrome.storage.local.get(['thresholds', 'pollingInterval'], (data) => {
     if (data.thresholds) {
       CONFIG.THRESHOLDS = data.thresholds;
     } else {
       // Save default thresholds if none exist
       chrome.storage.local.set({ thresholds: CONFIG.THRESHOLDS });
     }
+    
+    if (data.pollingInterval) {
+      CONFIG.POLLING_INTERVAL_MINUTES = data.pollingInterval;
+    } else {
+      // Save default polling interval if none exists
+      chrome.storage.local.set({ pollingInterval: CONFIG.POLLING_INTERVAL_MINUTES });
+    }
+    
+    chrome.alarms.create('refreshCredits', { periodInMinutes: CONFIG.POLLING_INTERVAL_MINUTES });
+    fetchCreditsAndStore();
   });
-  
-  chrome.alarms.create('refreshCredits', { periodInMinutes: 1 });
-  fetchCreditsAndStore();
 });
 
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -708,5 +717,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     
     // Return true to indicate we'll respond asynchronously
     return true;
+  }
+  
+  if (message.action === "updatePollingInterval") {
+    console.log("Updating polling interval:", message.pollingInterval);
+    
+    if (message.pollingInterval && message.pollingInterval > 0) {
+      // Update config with new polling interval
+      CONFIG.POLLING_INTERVAL_MINUTES = message.pollingInterval;
+      
+      // Save to storage
+      chrome.storage.local.set({ pollingInterval: CONFIG.POLLING_INTERVAL_MINUTES });
+      
+      // Update the alarm
+      chrome.alarms.clear('refreshCredits', (cleared) => {
+        if (cleared) {
+          chrome.alarms.create('refreshCredits', { periodInMinutes: CONFIG.POLLING_INTERVAL_MINUTES });
+          console.log(`Polling interval updated to ${CONFIG.POLLING_INTERVAL_MINUTES} minutes`);
+          sendResponse({ success: true, message: `Polling interval updated to ${CONFIG.POLLING_INTERVAL_MINUTES} minutes` });
+        } else {
+          console.error("Failed to clear existing alarm");
+          sendResponse({ success: false, message: "Failed to update polling interval" });
+        }
+      });
+      
+      // Return true to indicate we'll respond asynchronously
+      return true;
+    } else {
+      sendResponse({ success: false, message: "Invalid polling interval" });
+      return true;
+    }
   }
 }); 
