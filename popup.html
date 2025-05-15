@@ -147,7 +147,7 @@
     .settings-item {
       margin-bottom: 8px;
       display: flex;
-      align-items: center;
+      align-items: flex-start;
     }
     .settings-item input {
       width: 45px;
@@ -156,6 +156,7 @@
       border-radius: 3px;
       text-align: center;
       margin-right: 10px;
+      margin-top: 2px;
     }
     .threshold-label {
       display: flex;
@@ -175,23 +176,7 @@
       margin-top: 1px;
       text-align: left;
     }
-    .color-indicator {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-right: 4px;
-      vertical-align: middle;
-    }
-    .red-indicator {
-      background-color: #D32F2F;
-    }
-    .yellow-indicator {
-      background-color: #FFD600;
-    }
-    .green-indicator {
-      background-color: #4CAF50;
-    }
+  
     .credit-info {
       text-align: left;
     }
@@ -287,10 +272,9 @@
           <input type="number" id="warningThreshold" min="1" max="365" placeholder="15">
           <div class="threshold-label">
             <div class="threshold-name">
-              <span class="color-indicator red-indicator"></span>
-              Warning (days)
+              Use Them Now
             </div>
-            <span class="small-note">Batch will turn red when this many days remain</span>
+            <span class="small-note">Icon will turn <span style="color: #D32F2F; font-weight: bold;">red</span> when your next credits expire in this many days</span>
           </div>
         </div>
         
@@ -298,10 +282,9 @@
           <input type="number" id="cautionThreshold" min="1" max="365" placeholder="30">
           <div class="threshold-label">
             <div class="threshold-name">
-              <span class="color-indicator yellow-indicator"></span>
-              Caution (days)
+              Use Them Soon
             </div>
-            <span class="small-note">Batch will turn yellow when this many days remain</span>
+            <span class="small-note">Icon will turn <span style="color: #FFD600; font-weight: bold;">yellow</span> when your next credits expire in this many days</span>
           </div>
         </div>
       </div>
@@ -313,9 +296,9 @@
           <input type="number" id="pollingInterval" min="1" max="1440" placeholder="1">
           <div class="threshold-label">
             <div class="threshold-name">
-              Polling Interval (minutes)
+              Polling Interval
             </div>
-            <span class="small-note">How often the extension checks for updates</span>
+            <span class="small-note">Check for new credits every this many minutes</span>
           </div>
         </div>
       </div>
